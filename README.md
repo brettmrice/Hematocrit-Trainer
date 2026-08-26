@@ -1,2 +1,2 @@
 # Hematocrit-Trainer
-Virtual manual spun hematocrit reader trainer
+Virtual trainer for manual spun hematocrit reader
