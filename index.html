@@ -32,7 +32,7 @@
               alt="Top disk">
       </div>
       <!-- MICROCAPILLARY TUBE HOLDER -->
-      <div id="capillary_holder" class="flex zoomIN">
+      <div id="capillary_holder" class="flex">
         <img src="reader/capillary-holder.svg"
               height="1000px" width="1000px"
               alt="Capillary tube holder">
@@ -133,7 +133,6 @@
         </div>
       </div>
 
-      
       <!-- SWITCHES FOR DISK MOVEMENT (OPTION D) -->
       
       <!-- SWITCH - BOTTOM DISK -->
@@ -371,10 +370,13 @@
     const topBadge = document.getElementById('top_disk_badge');
     const botIcon = document.getElementById('bottom_disk_icon_container');
     const topIcon = document.getElementById('top_disk_icon_container');
+    const botDisc = document.getElementById('bottom_disk');
+    const topDisc = document.getElementById('top_disk');
 
     const botLocked = !!bottom_disk_locked;
     const topLocked = !!top_disk_locked;
     const bothLocked = botLocked && topLocked;
+    const isSampleLoaded = (typeof activeSampleIndex !== 'undefined' && activeSampleIndex !== -1);
 
     const rotateIconSvg = `
       <svg class="disk_button_svg icon_rotate" viewBox="0 0 24 24" fill="none" stroke="#3c4048" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -412,6 +414,14 @@
         topBadge.textContent = 'LINKED';
         topBadge.className = 'disc_switch_badge badge_linked';
       }
+      if (botDisc) {
+        if (isSampleLoaded) botDisc.classList.add('disc_active');
+        else botDisc.classList.remove('disc_active');
+      }
+      if (topDisc) {
+        if (isSampleLoaded) topDisc.classList.add('disc_active');
+        else topDisc.classList.remove('disc_active');
+      }
     } else {
       // Bottom disk state
       if (!botLocked) {
@@ -424,6 +434,10 @@
           botBadge.textContent = 'ACTIVE';
           botBadge.className = 'disc_switch_badge badge_active';
         }
+        if (botDisc) {
+          if (isSampleLoaded) botDisc.classList.add('disc_active');
+          else botDisc.classList.remove('disc_active');
+        }
       } else {
         if (botBtn) {
           botBtn.className = 'flex disc_switch_btn state_fixed';
@@ -434,6 +448,7 @@
           botBadge.textContent = 'FIXED';
           botBadge.className = 'disc_switch_badge badge_fixed';
         }
+        if (botDisc) botDisc.classList.remove('disc_active');
       }
 
       // Top disk state
@@ -447,6 +462,10 @@
           topBadge.textContent = 'ACTIVE';
           topBadge.className = 'disc_switch_badge badge_active';
         }
+        if (topDisc) {
+          if (isSampleLoaded) topDisc.classList.add('disc_active');
+          else topDisc.classList.remove('disc_active');
+        }
       } else {
         if (topBtn) {
           topBtn.className = 'flex disc_switch_btn state_fixed';
@@ -457,6 +476,7 @@
           topBadge.textContent = 'FIXED';
           topBadge.className = 'disc_switch_badge badge_fixed';
         }
+        if (topDisc) topDisc.classList.remove('disc_active');
       }
     }
 
@@ -488,13 +508,26 @@
     const topUnlocked = (typeof top_disk_locked !== 'undefined' && !top_disk_locked);
     const bothLocked = (typeof top_disk_locked !== 'undefined' && top_disk_locked && typeof bottom_disk_locked !== 'undefined' && bottom_disk_locked);
     const isVisible = topUnlocked || bothLocked;
+    const capHolder = document.getElementById('capillary_holder');
 
     if (isVisible) {
       zoomBtn.classList.remove('hidden');
       zoomBtn.classList.add('visible');
+      if (capHolder) {
+        if (typeof is_zoomed !== 'undefined' && is_zoomed) {
+          capHolder.classList.remove('zoomIN');
+          capHolder.classList.add('zoomOUT');
+        } else {
+          capHolder.classList.remove('zoomOUT');
+          capHolder.classList.add('zoomIN');
+        }
+      }
     } else {
       zoomBtn.classList.remove('visible');
       zoomBtn.classList.add('hidden');
+      if (capHolder) {
+        capHolder.classList.remove('zoomIN', 'zoomOUT');
+      }
       // Reset zoom view to unzoomed (1x) if zoom button becomes hidden
       if (typeof is_zoomed !== 'undefined' && is_zoomed) {
         if (typeof setCapillaryZoom === 'function') {
@@ -597,12 +630,12 @@
     // Reset zoom view to unzoomed (1x) if currently zoomed
     if (typeof is_zoomed !== 'undefined' && is_zoomed) {
       if (typeof capillary_holder !== 'undefined') {
-        capillary_holder.classList.remove('zoomOUT');
-        capillary_holder.classList.add('zoomIN');
+        capillary_holder.classList.remove('zoomOUT', 'zoomIN');
       }
       is_zoomed = false;
       zoom_translate_y = 0;
       if (typeof reader !== 'undefined') {
+        reader.classList.remove('zoomed_view');
         reader.style.transition = 'transform 0.3s ease-out';
         reader.style.transform = 'scale(1) translateY(0px)';
       }
@@ -813,12 +846,10 @@
       handleDiskAnimationEnd();
     }
     rotate_disks = true;
-      m_cX = e.clientX;
-      m_cY = e.clientY;
+    document.body.classList.add('is-dragging-disc');
+    m_cX = e.clientX;
+    m_cY = e.clientY;
     get_initial_angle(e, m_cX, m_cY);
-    
-    switch_bottom_disk.classList.add('switch_hide');
-    switch_top_disk.classList.add('switch_hide');
   });
   bottom_disk.addEventListener('mouseenter', () => {
     mouse_enter = true;
@@ -842,28 +873,23 @@
       handleDiskAnimationEnd();
     }
     rotate_disks = true;
+    document.body.classList.add('is-dragging-disc');
     t_cX = e.touches[0].clientX;
     t_cY = e.touches[0].clientY;
     get_initial_angle(e, t_cX, t_cY);
   });
 
-
-  main.addEventListener('mouseup', () => {
+  function stopDiscDrag() {
+    if (!rotate_disks) return;
     rotate_disks = false;
-    switch_bottom_disk.classList.remove('switch_hide_visibility');
-    switch_bottom_disk.classList.remove('switch_hide');
-    switch_top_disk.classList.remove('switch_hide_visibility');
-    switch_top_disk.classList.remove('switch_hide');
-  });
-  reader.addEventListener('touchend', () => {
-    rotate_disks = false;
-  });
+    document.body.classList.remove('is-dragging-disc');
+  }
 
-  reader.addEventListener('mouseleave', () => {
-    rotate_disks = false;
-  });
+  window.addEventListener('mouseup', stopDiscDrag);
+  window.addEventListener('touchend', stopDiscDrag);
+  window.addEventListener('touchcancel', stopDiscDrag);
 
-  reader.addEventListener('mousemove', (e) => {
+  window.addEventListener('mousemove', (e) => {
     if(rotate_disks) {
       m_cX = e.clientX;
       m_cY = e.clientY;
@@ -871,13 +897,13 @@
       mouse_move = true;
     }
   });
-  reader.addEventListener('touchmove', (e) => {
+  window.addEventListener('touchmove', (e) => {
     if(rotate_disks) {
       t_cX = e.touches[0].clientX;
       t_cY = e.touches[0].clientY;
       rotate_disk(e, t_cX, t_cY);
     }
-  });
+  }, { passive: false });
   
   function getDiskCenterInfo() {
     const diskEl = document.getElementById('top_disk') || document.getElementById('reader');
@@ -995,11 +1021,15 @@
   var ZOOM_SCALE = 2.5;
 
   function updateZoomTransform(smooth = false) {
+    const doneCheck = document.getElementById('done_check_container');
     if (smooth) {
       reader.style.transition = 'transform 0.3s ease-out';
+      if (doneCheck) doneCheck.style.transition = 'opacity 0.25s ease, transform 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out';
     } else {
       reader.style.transition = 'none';
+      if (doneCheck) doneCheck.style.transition = 'none';
     }
+    reader.style.setProperty('--zoom-ty', `${zoom_translate_y}px`);
     reader.style.transform = `scale(${ZOOM_SCALE}) translateY(${zoom_translate_y}px)`;
   }
 
@@ -1073,6 +1103,8 @@
   }
   window.getTargetZoomTranslateY = getTargetZoomTranslateY;
 
+  let lastReaderHeight = (typeof reader !== 'undefined' && reader.offsetHeight) ? reader.offsetHeight : 0;
+
   function setCapillaryZoom(shouldZoom, smooth = true, targetType = null) {
     const zoomBtn = document.getElementById('zoom_button');
     const isZoomButtonVisible = zoomBtn && zoomBtn.classList.contains('visible');
@@ -1081,6 +1113,9 @@
     }
 
     if (shouldZoom) {
+      if (typeof reader !== 'undefined') {
+        reader.classList.add('zoomed_view');
+      }
       if (typeof capillary_holder !== 'undefined') {
         capillary_holder.classList.remove('zoomIN');
         capillary_holder.classList.add('zoomOUT');
@@ -1090,12 +1125,20 @@
         zoomBtn.setAttribute('aria-label', 'Zoom out capillary reader');
       }
       is_zoomed = true;
+      lastReaderHeight = (typeof reader !== 'undefined' && reader.offsetHeight) ? reader.offsetHeight : 0;
       zoom_translate_y = targetType ? getTargetZoomTranslateY(targetType) : 0;
       updateZoomTransform(smooth);
     } else {
+      if (typeof reader !== 'undefined') {
+        reader.classList.remove('zoomed_view');
+      }
       if (typeof capillary_holder !== 'undefined') {
         capillary_holder.classList.remove('zoomOUT');
-        capillary_holder.classList.add('zoomIN');
+        if (isZoomButtonVisible) {
+          capillary_holder.classList.add('zoomIN');
+        } else {
+          capillary_holder.classList.remove('zoomIN');
+        }
       }
       if (zoomBtn) {
         zoomBtn.setAttribute('title', 'Zoom in capillary reader');
@@ -1103,10 +1146,16 @@
       }
       is_zoomed = false;
       zoom_translate_y = 0;
+      if (typeof reader !== 'undefined') {
+        reader.style.setProperty('--zoom-ty', '0px');
+      }
+      const doneCheckEl = document.getElementById('done_check_container');
       if (smooth) {
         reader.style.transition = 'transform 0.35s ease-out';
+        if (doneCheckEl) doneCheckEl.style.transition = 'opacity 0.25s ease, transform 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out';
       } else {
         reader.style.transition = 'none';
+        if (doneCheckEl) doneCheckEl.style.transition = 'none';
       }
       reader.style.transform = 'scale(1) translateY(0px)';
     }
@@ -1130,13 +1179,33 @@
     setCapillaryZoom(!is_zoomed, true);
   }
 
-  window.addEventListener('resize', () => {
+  function handleViewportChange() {
+    const currentReaderHeight = (typeof reader !== 'undefined' && reader.offsetHeight) ? reader.offsetHeight : 0;
+    if (is_zoomed && lastReaderHeight > 0 && currentReaderHeight > 0) {
+      zoom_translate_y = (zoom_translate_y / lastReaderHeight) * currentReaderHeight;
+      const minTranslateY = 0;
+      const maxTranslateY = currentReaderHeight * (0.535 - 1 / ZOOM_SCALE);
+      zoom_translate_y = Math.max(minTranslateY, Math.min(maxTranslateY, zoom_translate_y));
+      updateZoomTransform(false);
+    }
+    if (currentReaderHeight > 0) {
+      lastReaderHeight = currentReaderHeight;
+    }
+
     if (typeof updateIndicatorPosition === 'function') {
       updateIndicatorPosition();
     }
     if (typeof updateAlignmentFeedback === 'function') {
       updateAlignmentFeedback();
     }
+  }
+
+  window.addEventListener('resize', handleViewportChange);
+  document.addEventListener('fullscreenchange', () => {
+    setTimeout(handleViewportChange, 60);
+  });
+  document.addEventListener('webkitfullscreenchange', () => {
+    setTimeout(handleViewportChange, 60);
   });
 
   /* Bounded vertical scrolling when zoomed in */
@@ -1553,6 +1622,13 @@
       e.preventDefault();
     }
     if (typeof cancelTutorialDemo === 'function') cancelTutorialDemo();
+
+    // Remove active lavender outline from discs
+    const botDisc = document.getElementById('bottom_disk');
+    const topDisc = document.getElementById('top_disk');
+    if (botDisc) botDisc.classList.remove('disc_active');
+    if (topDisc) topDisc.classList.remove('disc_active');
+
     const btn = document.getElementById('done_check_btn');
     const card = document.getElementById('done_check_input_card');
     const input = document.getElementById('hct_result_input');
@@ -1578,6 +1654,23 @@
     resetDoneCheckState();
   }
   window.closeDoneCheckInput = closeDoneCheckInput;
+
+  function launchTrainerFromCheck(e) {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    // Close the input card
+    resetDoneCheckState();
+    // Ensure trainer is shown and turned ON
+    showTrainerButton();
+    setTrainerState(true);
+    // Start show me step demo for the earliest incorrect step
+    if (typeof startShowMeStepDemo === 'function') {
+      startShowMeStepDemo();
+    }
+  }
+  window.launchTrainerFromCheck = launchTrainerFromCheck;
 
   function submitDoneCheckResult(e) {
     if (e) {
@@ -1606,26 +1699,62 @@
     const sample = currentCases[activeSampleIndex];
     // True target result rounded to the nearest 0.5
     const targetRounded = Math.round(sample.hct * 2) / 2;
+    const minRange = (targetRounded - 0.5).toFixed(1);
+    const maxRange = (targetRounded + 0.5).toFixed(1);
     // Calculate difference
     const diff = Math.abs(userVal - targetRounded);
-    const isPass = diff <= 0.5 + 1e-6;
 
-    if (isPass) {
-      feedback.className = 'done_check_feedback success';
+    if (diff <= 0.5 + 1e-6) {
+      // IDEAL: within +-0.5% (Green)
+      feedback.className = 'done_check_feedback ideal';
       feedback.innerHTML = `
         <div class="feedback_header">
           <svg class="feedback_icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          <span>Correct!</span>
+          <span>Ideal</span>
         </div>
         <div class="feedback_details">
-          <span>Actual result: <strong>${targetRounded.toFixed(1)}%</strong></span>
-          <span class="feedback_sub">Your entry: ${userVal.toFixed(1)}% (within &plusmn;0.5)</span>
+          <span>Target: <strong>${targetRounded.toFixed(1)}%</strong> (range: ${minRange}% &ndash; ${maxRange}%)</span>
+          <span class="feedback_sub">Your entry: ${userVal.toFixed(1)}%</span>
+        </div>
+      `;
+    } else if (diff < 1.0 - 1e-6) {
+      // VERY CLOSE: > +-0.5% but < +-1.0% (Yellow-Green)
+      feedback.className = 'done_check_feedback very_close';
+      feedback.innerHTML = `
+        <div class="feedback_header">
+          <svg class="feedback_icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>Very Close</span>
+        </div>
+        <div class="feedback_details">
+          <span>Target: <strong>${targetRounded.toFixed(1)}%</strong> (ideal range: ${minRange}% &ndash; ${maxRange}%)</span>
+          <span class="feedback_sub">Your entry: ${userVal.toFixed(1)}% (diff: ${diff.toFixed(1)}%)</span>
+        </div>
+      `;
+    } else if (diff <= 2.0 + 1e-6) {
+      // CLOSE: >= +-1.0% and <= +-2.0% (Yellow)
+      feedback.className = 'done_check_feedback close';
+      feedback.innerHTML = `
+        <div class="feedback_header">
+          <svg class="feedback_icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>Close</span>
+        </div>
+        <div class="feedback_details">
+          <span>Target: <strong>${targetRounded.toFixed(1)}%</strong> (ideal range: ${minRange}% &ndash; ${maxRange}%)</span>
+          <span class="feedback_sub">Your entry: ${userVal.toFixed(1)}% (diff: ${diff.toFixed(1)}%)</span>
         </div>
       `;
     } else {
-      feedback.className = 'done_check_feedback error';
+      // NOT YET: > +-2.0% (Red)
+      feedback.className = 'done_check_feedback not_yet';
       feedback.innerHTML = `
         <div class="feedback_header">
           <svg class="feedback_icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1633,12 +1762,17 @@
             <line x1="15" y1="9" x2="9" y2="15"></line>
             <line x1="9" y1="9" x2="15" y2="15"></line>
           </svg>
-          <span>Not quite</span>
+          <span>Not Yet</span>
         </div>
         <div class="feedback_details">
-          <span>Actual result: <strong>${targetRounded.toFixed(1)}%</strong></span>
-          <span class="feedback_sub">Your entry: ${userVal.toFixed(1)}% (diff: ${diff.toFixed(1)}%)</span>
+          <span class="feedback_sub">Your entry: ${userVal.toFixed(1)}%</span>
         </div>
+        <button class="show_me_btn done_check_show_me_btn" onclick="launchTrainerFromCheck(event)" title="Show me how to read hematocrit" aria-label="Show me tutorial">
+          <svg class="show_me_icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>Show Me</span>
+        </button>
       `;
     }
   }
@@ -1868,6 +2002,9 @@
 
     // 3. Then slide in new sample (halved duration: 0.3s)
     activeSampleIndex = index;
+    if (typeof updateDiscButtonUI === 'function') {
+      updateDiscButtonUI();
+    }
     const fracs = calculateFractions(sampleData);
     rbc_fraction.style.height = fracs.rbc + '%';
     wbc_plt_fraction.style.height = fracs.wbc + '%';
@@ -2928,12 +3065,12 @@
     // Reset zoom view to unzoomed (1x) if currently zoomed
     if (typeof is_zoomed !== 'undefined' && is_zoomed) {
       if (typeof capillary_holder !== 'undefined') {
-        capillary_holder.classList.remove('zoomOUT');
-        capillary_holder.classList.add('zoomIN');
+        capillary_holder.classList.remove('zoomOUT', 'zoomIN');
       }
       is_zoomed = false;
       zoom_translate_y = 0;
       if (typeof reader !== 'undefined') {
+        reader.classList.remove('zoomed_view');
         reader.style.transition = 'transform 0.3s ease-out';
         reader.style.transform = 'scale(1) translateY(0px)';
       }
@@ -2998,6 +3135,9 @@
     }
 
     activeSampleIndex = -1;
+    if (typeof updateDiscButtonUI === 'function') {
+      updateDiscButtonUI();
+    }
     hasDiscMovedAfterSampleLoad = false;
     resetSampleNotifScale();
     if (typeof updateDoneCheckVisibility === 'function') {
