@@ -489,6 +489,39 @@
   }
   window.updateDiscButtonUI = updateDiscButtonUI;
 
+  function triggerPulseActiveDiscs() {
+    const isSampleLoaded = (typeof activeSampleIndex !== 'undefined' && activeSampleIndex !== -1);
+    if (!isSampleLoaded) return;
+
+    const botDisc = document.getElementById('bottom_disk');
+    const topDisc = document.getElementById('top_disk');
+    const botLocked = !!bottom_disk_locked;
+    const topLocked = !!top_disk_locked;
+    const bothLocked = botLocked && topLocked;
+
+    const discsToPulse = [];
+    if (bothLocked) {
+      if (botDisc) discsToPulse.push(botDisc);
+      if (topDisc) discsToPulse.push(topDisc);
+    } else {
+      if (!botLocked && botDisc) discsToPulse.push(botDisc);
+      if (!topLocked && topDisc) discsToPulse.push(topDisc);
+    }
+
+    discsToPulse.forEach((disc) => {
+      disc.classList.remove('disc_pulse');
+      // Trigger reflow to restart CSS animation if already present
+      void disc.offsetWidth;
+      disc.classList.add('disc_pulse');
+    });
+
+    setTimeout(() => {
+      if (botDisc) botDisc.classList.remove('disc_pulse');
+      if (topDisc) topDisc.classList.remove('disc_pulse');
+    }, 700);
+  }
+  window.triggerPulseActiveDiscs = triggerPulseActiveDiscs;
+
   switch_bottom_disk.addEventListener('mousedown', (e) => {
     e.stopImmediatePropagation();
   });
@@ -559,6 +592,7 @@
       }
     }
     updateDiscButtonUI();
+    triggerPulseActiveDiscs();
     if (typeof updateAlignmentFeedback === 'function') {
       updateAlignmentFeedback();
     }
@@ -598,6 +632,7 @@
       }
     }
     updateDiscButtonUI();
+    triggerPulseActiveDiscs();
     if (typeof updateAlignmentFeedback === 'function') {
       updateAlignmentFeedback();
     }
@@ -748,7 +783,7 @@
   }
 
   function showSampleNotification() {
-    if (activeSampleIndex !== -1 || (typeof isSampleChanging !== 'undefined' && isSampleChanging)) return;
+    if ((typeof isExamMode !== 'undefined' && isExamMode) || activeSampleIndex !== -1 || (typeof isSampleChanging !== 'undefined' && isSampleChanging)) return;
     const notif = document.getElementById('sample_notification');
     const samplesTray = document.getElementById('samples');
     if (notif && activeSampleIndex === -1) {
@@ -776,7 +811,7 @@
 
   let lastNonSampleClickTime = 0;
   function handleNonSampleClick(e) {
-    if (activeSampleIndex !== -1 || (typeof isSampleChanging !== 'undefined' && isSampleChanging)) return;
+    if ((typeof isExamMode !== 'undefined' && isExamMode) || activeSampleIndex !== -1 || (typeof isSampleChanging !== 'undefined' && isSampleChanging)) return;
     const notif = document.getElementById('sample_notification');
     if (!notif) return;
 
@@ -1468,8 +1503,48 @@
     { label: "S-05", name: "Leukocytosis", hct: 44, buffy: 6.0, fill: 72.0 }
   ];
 
-  var currentCases = [...defaultCases];
-  var activeSampleIndex = -1;
+  /* 20 DETERMINISTIC EXAM UNKNOWNS:
+   * Low (20–30%): Unknowns 2, 5, 8, 11, 14, 18
+   * Normal (35–45%): Unknowns 1, 4, 7, 9, 12, 15, 17, 20
+   * High (50–65%): Unknowns 3, 6, 10, 13, 16, 19
+   */
+  const examCases = [
+    { label: "Unknown #1", name: "Unknown #1", hct: 41.5, buffy: 1.0, fill: 71.2 },
+    { label: "Unknown #2", name: "Unknown #2", hct: 24.0, buffy: 0.8, fill: 69.5 },
+    { label: "Unknown #3", name: "Unknown #3", hct: 56.5, buffy: 1.2, fill: 73.0 },
+    { label: "Unknown #4", name: "Unknown #4", hct: 37.0, buffy: 1.0, fill: 70.0 },
+    { label: "Unknown #5", name: "Unknown #5", hct: 28.5, buffy: 0.9, fill: 68.5 },
+    { label: "Unknown #6", name: "Unknown #6", hct: 61.0, buffy: 1.4, fill: 74.0 },
+    { label: "Unknown #7", name: "Unknown #7", hct: 44.0, buffy: 1.1, fill: 72.5 },
+    { label: "Unknown #8", name: "Unknown #8", hct: 21.5, buffy: 0.8, fill: 69.0 },
+    { label: "Unknown #9", name: "Unknown #9", hct: 39.5, buffy: 1.0, fill: 70.8 },
+    { label: "Unknown #10", name: "Unknown #10", hct: 53.0, buffy: 1.3, fill: 71.8 },
+    { label: "Unknown #11", name: "Unknown #11", hct: 26.5, buffy: 0.9, fill: 70.5 },
+    { label: "Unknown #12", name: "Unknown #12", hct: 43.0, buffy: 1.1, fill: 73.2 },
+    { label: "Unknown #13", name: "Unknown #13", hct: 51.5, buffy: 1.2, fill: 69.2 },
+    { label: "Unknown #14", name: "Unknown #14", hct: 22.5, buffy: 0.8, fill: 68.8 },
+    { label: "Unknown #15", name: "Unknown #15", hct: 36.5, buffy: 1.0, fill: 69.8 },
+    { label: "Unknown #16", name: "Unknown #16", hct: 58.0, buffy: 1.3, fill: 73.5 },
+    { label: "Unknown #17", name: "Unknown #17", hct: 40.0, buffy: 1.2, fill: 71.5 },
+    { label: "Unknown #18", name: "Unknown #18", hct: 29.0, buffy: 1.0, fill: 72.0 },
+    { label: "Unknown #19", name: "Unknown #19", hct: 63.5, buffy: 1.4, fill: 74.2 },
+    { label: "Unknown #20", name: "Unknown #20", hct: 45.0, buffy: 1.0, fill: 72.8 }
+  ];
+
+  let isExamMode = false;
+  let examUnknownIndex = -1;
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('exam')) {
+    let num = parseInt(urlParams.get('exam'), 10);
+    if (isNaN(num) || num < 1 || num > 20) {
+      num = 1;
+    }
+    isExamMode = true;
+    examUnknownIndex = num - 1;
+  }
+
+  var currentCases = isExamMode ? [...examCases] : [...defaultCases];
+  var activeSampleIndex = isExamMode ? examUnknownIndex : -1;
 
   function calculateFractions(sampleData) {
     // Fill percent between 2/3 (66.67%) and 3/4 (75.0%) of space above critoseal
@@ -1489,6 +1564,7 @@
   var trainerStateOn = false;
 
   function setTrainerState(isOn) {
+    if (isExamMode) return;
     trainerStateOn = isOn;
     const btn = document.getElementById('trainer_btn');
     const badge = document.getElementById('trainer_status_badge');
@@ -1522,6 +1598,19 @@
   function updateTopPillVisibility() {
     const showMeBtn = document.getElementById('show_me_btn');
     const doneCheckContainer = document.getElementById('done_check_container');
+
+    if (isExamMode) {
+      if (showMeBtn) {
+        showMeBtn.classList.remove('visible');
+        showMeBtn.classList.add('hidden');
+      }
+      if (doneCheckContainer) {
+        doneCheckContainer.classList.remove('visible');
+        doneCheckContainer.classList.add('hidden');
+        resetDoneCheckState();
+      }
+      return;
+    }
 
     const hasSample = (typeof activeSampleIndex !== 'undefined' && activeSampleIndex !== -1 && currentCases && currentCases[activeSampleIndex]);
     const isTrainerAppeared = !!(trainerVisible || trainerStateOn);
@@ -1844,6 +1933,7 @@
   window.toggleTrainer = toggleTrainer;
 
   function renderSamplesTray() {
+    if (isExamMode) return;
     const container = document.getElementById('samples');
     if (!container) return;
 
@@ -2287,6 +2377,10 @@
       }
     }
 
+    document.body.classList.remove('is-dragging-disc');
+    if (bottom_disk) bottom_disk.classList.remove('disc_pulse');
+    if (top_disk) top_disk.classList.remove('disc_pulse');
+
     const hand = document.getElementById('demo_hand');
     if (hand) {
       hand.style.transition = 'opacity 0.25s ease';
@@ -2332,6 +2426,7 @@
   function animateDemoArcDrag(diskType, targetDeltaDeg, durationMs) {
     return new Promise((resolve) => {
       if (!demoActive) return resolve();
+      document.body.classList.add('is-dragging-disc');
       const hand = document.getElementById('demo_hand');
       const startBot = bottom_disk.value;
       const startTop = top_disk.value;
@@ -2341,7 +2436,10 @@
       const startTime = performance.now();
 
       function step(now) {
-        if (!demoActive) return resolve();
+        if (!demoActive) {
+          document.body.classList.remove('is-dragging-disc');
+          return resolve();
+        }
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
         const ease = 0.5 - 0.5 * Math.cos(progress * Math.PI);
@@ -2376,6 +2474,7 @@
           const id = requestAnimationFrame(step);
           demoRafIds.push(id);
         } else {
+          document.body.classList.remove('is-dragging-disc');
           resolve();
         }
       }
@@ -2387,6 +2486,7 @@
   function animateDemoZoomedSweep(diskType, targetDeltaDeg, durationMs, targetYPercent) {
     return new Promise((resolve) => {
       if (!demoActive) return resolve();
+      document.body.classList.add('is-dragging-disc');
       const hand = document.getElementById('demo_hand');
       const startBot = bottom_disk.value;
       const startTop = top_disk.value;
@@ -2403,7 +2503,10 @@
       const startY = targetYPercent || 72;
 
       function step(now) {
-        if (!demoActive) return resolve();
+        if (!demoActive) {
+          document.body.classList.remove('is-dragging-disc');
+          return resolve();
+        }
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / durationMs, 1);
         const ease = 0.5 - 0.5 * Math.cos(progress * Math.PI);
@@ -2435,6 +2538,7 @@
           const id = requestAnimationFrame(step);
           demoRafIds.push(id);
         } else {
+          document.body.classList.remove('is-dragging-disc');
           resolve();
         }
       }
@@ -2621,6 +2725,7 @@
     top_disk_locked = false;
     bottom_disk_locked = true;
     if (typeof updateDiscButtonUI === 'function') updateDiscButtonUI();
+    if (typeof triggerPulseActiveDiscs === 'function') triggerPulseActiveDiscs();
     if (typeof updateZoomButtonVisibility === 'function') updateZoomButtonVisibility();
 
     await demoWait(180);
@@ -2658,6 +2763,7 @@
     // Lock TOP (both are now locked)
     top_disk_locked = true;
     if (typeof updateDiscButtonUI === 'function') updateDiscButtonUI();
+    if (typeof triggerPulseActiveDiscs === 'function') triggerPulseActiveDiscs();
     if (typeof updateZoomButtonVisibility === 'function') updateZoomButtonVisibility();
 
     await demoWait(180);
@@ -2826,6 +2932,7 @@
         bottom_disk_locked = false;
         top_disk_locked = true;
         if (typeof updateDiscButtonUI === 'function') updateDiscButtonUI();
+        if (typeof triggerPulseActiveDiscs === 'function') triggerPulseActiveDiscs();
         if (typeof updateZoomButtonVisibility === 'function') updateZoomButtonVisibility();
         await demoWait(180);
         if (!demoActive) return;
@@ -2870,6 +2977,7 @@
         top_disk_locked = false;
         bottom_disk_locked = true;
         if (typeof updateDiscButtonUI === 'function') updateDiscButtonUI();
+        if (typeof triggerPulseActiveDiscs === 'function') triggerPulseActiveDiscs();
         if (typeof updateZoomButtonVisibility === 'function') updateZoomButtonVisibility();
         await demoWait(180);
         if (!demoActive) return;
@@ -2948,6 +3056,7 @@
         top_disk_locked = true;
         bottom_disk_locked = true;
         if (typeof updateDiscButtonUI === 'function') updateDiscButtonUI();
+        if (typeof triggerPulseActiveDiscs === 'function') triggerPulseActiveDiscs();
         if (typeof updateZoomButtonVisibility === 'function') updateZoomButtonVisibility();
         await demoWait(180);
         if (!demoActive) return;
@@ -3659,8 +3768,8 @@
       }
     }
 
-    // Apply visual indicator states if Trainer is ON; hide if Trainer is OFF
-    if (trainerStateOn) {
+    // Apply visual indicator states if Trainer is ON; hide if Trainer is OFF or in Exam Mode
+    if (trainerStateOn && !isExamMode) {
       applyIndicatorState(critosealIndicator, critosealVisualState, critosealVisualData);
       applyIndicatorState(bottom100Indicator, bottom100VisualState, bottom100VisualData);
       applyIndicatorState(plasmaIndicator, plasmaVisualState, plasmaVisualData);
@@ -3682,9 +3791,42 @@
   window.updateAlignmentFeedback = updateAlignmentFeedback;
 
   // Initialize UI & Cases
-  renderSamplesTray();
-  updateDiscButtonUI();
-  updateZoomButtonVisibility();
+  if (isExamMode) {
+    document.body.classList.add('exam_mode');
+    trainerStateOn = false;
+    trainerVisible = false;
+
+    const deviceNameLong = document.getElementById('device_name_long');
+    const deviceNameShort = document.getElementById('device_name_short');
+    const deviceNameEl = document.getElementById('device_name');
+    if (deviceNameLong) deviceNameLong.textContent = `Unknown #${examUnknownIndex + 1}`;
+    if (deviceNameShort) deviceNameShort.textContent = `Unk #${examUnknownIndex + 1}`;
+    if (deviceNameEl) {
+      deviceNameEl.title = `Unknown #${examUnknownIndex + 1}`;
+      deviceNameEl.setAttribute('aria-label', `Unknown #${examUnknownIndex + 1}`);
+    }
+
+    const sampleData = currentCases[activeSampleIndex];
+    if (sampleData) {
+      const fracs = calculateFractions(sampleData);
+      const rbc_fraction = document.getElementById('rbc_fraction');
+      const wbc_plt_fraction = document.getElementById('wbc_plt_fraction');
+      const plasma_fraction = document.getElementById('plasma_fraction');
+      const sampleEl = document.getElementById('sample');
+      if (rbc_fraction && wbc_plt_fraction && plasma_fraction && sampleEl) {
+        rbc_fraction.style.height = fracs.rbc + '%';
+        wbc_plt_fraction.style.height = fracs.wbc + '%';
+        plasma_fraction.style.height = fracs.plasma + '%';
+        sampleEl.classList.remove('tube_hidden');
+      }
+    }
+    updateDiscButtonUI();
+    updateZoomButtonVisibility();
+  } else {
+    renderSamplesTray();
+    updateDiscButtonUI();
+    updateZoomButtonVisibility();
+  }
 
   /* =========================================================================
    * PROCEDURE MODAL INTERACTION LOGIC
@@ -3751,6 +3893,7 @@
   window.updateProcedureModalHighlight = updateProcedureModalHighlight;
 
   function openProcedureModal(e) {
+    if (isExamMode) return;
     if (e) {
       e.stopPropagation();
       e.preventDefault();

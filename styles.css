@@ -131,13 +131,30 @@ body.is-dragging-disc #samples * {
 
 #bottom_disk img,
 #top_disk img {
-  transition: filter 0.25s ease;
+  transition: filter 0.1s ease;
 }
 
-/* SOLID LAVENDER OUTLINE ON ACTIVE ROTATING DISC(S) (NO PULSE, ONLY WHEN SAMPLE IS LOADED) */
-#bottom_disk.disc_active img,
-#top_disk.disc_active img {
+/* SOLID LAVENDER OUTLINE ON ACTIVE ROTATING DISC(S) (FADES IN ON CLICK/HOLD DRAG, ONLY WHEN SAMPLE IS LOADED) */
+body.is-dragging-disc #bottom_disk.disc_active img,
+body.is-dragging-disc #top_disk.disc_active img {
   filter: drop-shadow(0 0 4px #9333ea) drop-shadow(0 0 2.5px #a855f7) drop-shadow(0 0 1.5px #c084fc);
+}
+
+/* SINGLE PULSE EFFECT WHEN A DISC BUTTON IS SELECTED TO INDICATE ACTIVE DISC */
+.disc_pulse img {
+  animation: disc_single_pulse 0.65s cubic-bezier(0.25, 1, 0.5, 1) 1 forwards;
+}
+
+@keyframes disc_single_pulse {
+  0% {
+    filter: drop-shadow(0 0 0px transparent);
+  }
+  35% {
+    filter: drop-shadow(0 0 6px #9333ea) drop-shadow(0 0 4px #a855f7) drop-shadow(0 0 2.5px #c084fc);
+  }
+  100% {
+    filter: drop-shadow(0 0 0px transparent);
+  }
 }
 
 #capillary_holder {
@@ -2357,3 +2374,56 @@ details[open] > summary .collapse_icon {
 .memory_aid_flow span.arrow {
   color: #16a34a;
 }
+
+/* =========================================================================
+ * EXAM MODE STYLES
+ * ========================================================================= */
+body.exam_mode #samples,
+body.exam_mode #show_me_btn,
+body.exam_mode #done_check_container,
+body.exam_mode #sample_notification,
+body.exam_mode #intersect_indicator,
+body.exam_mode #plasma_intersect_indicator,
+body.exam_mode #critoseal_indicator,
+body.exam_mode #bottom_100_indicator {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.exam_mode #device_name {
+  cursor: default !important;
+  transform: none !important;
+  box-shadow: none !important;
+  background-color: white !important;
+  color: #3c4048 !important;
+  filter: drop-shadow(black 0 0 var(--drop_shad)) !important;
+}
+
+body.exam_mode #device_name:hover,
+body.exam_mode #device_name:active {
+  transform: none !important;
+  box-shadow: none !important;
+  background-color: white !important;
+  color: #3c4048 !important;
+  filter: drop-shadow(black 0 0 var(--drop_shad)) !important;
+}
+
+body.exam_mode #device_name .procedure_icon {
+  display: none !important;
+}
+
+body.exam_mode #main {
+  width: 100vw;
+  height: 100vh;
+  justify-content: center;
+  align-items: center;
+}
+
+@media (orientation: portrait) {
+  body.exam_mode #reader {
+    width: min(90vw, 85vh);
+    height: min(90vw, 85vh);
+  }
+}
